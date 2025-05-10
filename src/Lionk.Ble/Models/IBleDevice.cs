@@ -8,17 +8,22 @@ public interface ICharacteristicNotificationData
 
 public interface IOnCharacteristicData
 {
-    Task OnNewData(ICharacteristicNotificationData data);
+    void OnNewData(ICharacteristicNotificationData data);
+    void OnRegistered();
+    void OnDisconnected();
 }
 
 public interface IBleDevice
 {
     public event EventHandler? OnConnectionEstablished;
+    public event EventHandler? OnSubscribeEstablished;
     public event EventHandler? OnDisconnected;
-    public DeviceStatus Status { get; }
+    public DeviceStatus Status { get; set; }
     public Task Connect();
-    public string? GetName();
+    public string GetName();
+    public string GetAddress();
     public Task<bool> IsConnected();
+    public short GetRssi();
 
     public Task SubscribeToCharacteristic(
         string serviceId,

@@ -7,5 +7,6 @@ public enum DeviceStatus
     Disconnected,
     Connected,
     Ready,
-    NotFound
+    NotFound,
+    Found
 }
