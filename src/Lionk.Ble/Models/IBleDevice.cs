@@ -31,4 +31,5 @@ public interface IBleDevice
         IOnCharacteristicData cb
     );
     public Task<byte[]> ReadCharacteristic(string serviceId, string characteristicId);
+    public Task FetchProperties();
 }

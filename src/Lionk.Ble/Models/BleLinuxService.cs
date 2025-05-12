@@ -16,10 +16,6 @@ public class BleLinuxService : BleService
     private bool _isDiscovering = false;
     private object _lock = new();
 
-    public BleLinuxService()
-    {
-    }
-
     protected override void OnExecute(CancellationToken cancellationToken)
     {
         if (_adapter is null)
@@ -29,6 +25,7 @@ public class BleLinuxService : BleService
         else
         {
             _ = GetAvailableDevices();
+            GetAllProperties();
             RegisterAllDevices();
             SubscribeAllDevices();
         }
@@ -36,10 +33,19 @@ public class BleLinuxService : BleService
         base.OnExecute(cancellationToken);
     }
 
+    private void GetAllProperties()
+    {
+        foreach (var device in _connectedDevices)
+        {
+            device.Value.FetchProperties();
+        }
+    }
+
     private void SubscribeAllDevices()
     {
         List<DeviceToSubscribe> subscribedDevices = new();
-        foreach (var deviceToSubscribe in _deviceToSubscribe)
+        var devicesToIterate = new List<DeviceToSubscribe>(_deviceToSubscribe);
+        foreach (var deviceToSubscribe in devicesToIterate)
         {
             SubscribeDevice(deviceToSubscribe.Address, deviceToSubscribe.ServiceId,
                 deviceToSubscribe.CharacteristicId, deviceToSubscribe.Callback);
@@ -57,8 +63,8 @@ public class BleLinuxService : BleService
     {
         if (_connectedDevices.TryGetValue(deviceId, out var device))
         {
-            Console.WriteLine("[SUB] Subscribing to characteristic");
-            _ = device.SubscribeToCharacteristic(serviceId, characteristicId, cb);
+            Console.WriteLine($"[SUB] Subscribing to characteristic {characteristicId}");
+            device.SubscribeToCharacteristic(serviceId, characteristicId, cb).GetAwaiter().GetResult();
             return;
         }
 

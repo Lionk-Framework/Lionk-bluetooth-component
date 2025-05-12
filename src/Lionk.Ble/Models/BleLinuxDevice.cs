@@ -34,7 +34,6 @@ class BleLinuxDevice : IBleDevice
     public event EventHandler? OnConnectionEstablished;
     public event EventHandler? OnSubscribeEstablished;
     public event EventHandler? OnDisconnected;
-    public DeviceStatus Status { get; set; }
     public BleLinuxDevice(Device device, Device1Properties props)
     {
         device.Connected += ConnectedAsync;
@@ -44,6 +43,7 @@ class BleLinuxDevice : IBleDevice
         this._props = props;
     }
 
+    public DeviceStatus Status { get; set; }
 
     public string GetName()
     {
@@ -63,6 +63,11 @@ class BleLinuxDevice : IBleDevice
         return _props.Address;
     }
 
+    public short GetRssi()
+    {
+        return _props.RSSI;
+    }
+
     private static async Task OnNotification(
         GattCharacteristic characteristic,
         GattCharacteristicValueEventArgs e
@@ -79,11 +84,6 @@ class BleLinuxDevice : IBleDevice
         {
             Console.WriteLine("Couldn't find characteristic subscriber");
         }
-    }
-
-    public short GetRssi()
-    {
-        return _props.RSSI;
     }
 
     public async Task SubscribeToCharacteristic(
@@ -112,9 +112,9 @@ class BleLinuxDevice : IBleDevice
             return;
         }
         _subscribers.Add(uuid, onData);
-        _ = characteristic.StartNotifyAsync();
-        characteristic.Value += OnNotification;
+        await characteristic.StartNotifyAsync();
         OnSubscribeEstablished?.Invoke(this, new BlueZEventArgs(false));
+        characteristic.Value += OnNotification;
     }
 
     public async Task<byte[]> ReadCharacteristic(string serviceId, string characteristicId)
@@ -135,12 +135,15 @@ class BleLinuxDevice : IBleDevice
         return await characteristic.ReadValueAsync(TimeSpan.FromSeconds(15));
     }
 
+    public async Task FetchProperties()
+    {
+        _props = await _device.GetAllAsync();
+    }
+
     public async Task<bool> IsConnected()
     {
         return await _device.GetConnectedAsync();
     }
-
-
 
     public async Task Connect()
     {
@@ -162,7 +165,6 @@ class BleLinuxDevice : IBleDevice
         return Task.CompletedTask;
     }
 
-
     Task ConnectedAsync(Device sender, BlueZEventArgs eventArgs)
     {
         OnConnectionEstablished?.Invoke(this, eventArgs);
@@ -173,6 +175,7 @@ class BleLinuxDevice : IBleDevice
     Task DisconnectedAsync(Device sender, BlueZEventArgs eventArgs)
     {
         OnDisconnected?.Invoke(sender, eventArgs);
+        Status = DeviceStatus.Disconnected;
         return Task.CompletedTask;
     }
 
