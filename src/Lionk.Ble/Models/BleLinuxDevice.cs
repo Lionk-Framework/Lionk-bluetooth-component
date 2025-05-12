@@ -2,29 +2,6 @@ using Linux.Bluetooth;
 using Linux.Bluetooth.Extensions;
 
 namespace Lionk.Ble.Models;
-
-class CharacteristicNotificationData : ICharacteristicNotificationData
-{
-    private string _uuid;
-    private byte[] _data;
-
-    public CharacteristicNotificationData(string uuid, byte[] data)
-    {
-        this._uuid = uuid;
-        this._data = data;
-    }
-
-    public string GetUuid()
-    {
-        return _uuid;
-    }
-
-    public byte[] GetValue()
-    {
-        return _data;
-    }
-}
-
 class BleLinuxDevice : IBleDevice
 {
     private Device _device;
@@ -77,8 +54,7 @@ class BleLinuxDevice : IBleDevice
         var data = e.Value;
         if (_subscribers.TryGetValue(uuid, out var subscriber))
         {
-            var notificationData = new CharacteristicNotificationData(uuid, data);
-            subscriber.OnNewData(notificationData);
+            subscriber.OnNewData(uuid, data);
         }
         else
         {

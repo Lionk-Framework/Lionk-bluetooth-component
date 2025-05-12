@@ -1,14 +1,8 @@
 namespace Lionk.Ble.Models;
 
-public interface ICharacteristicNotificationData
-{
-    string GetUuid();
-    byte[] GetValue();
-}
-
 public interface IOnCharacteristicData
 {
-    void OnNewData(ICharacteristicNotificationData data);
+    void OnNewData(string uuid, byte[] data);
     void OnRegistered();
     void OnDisconnected();
 }

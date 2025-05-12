@@ -1,7 +1,6 @@
 using Linux.Bluetooth;
 using Linux.Bluetooth.Extensions;
 using Lionk.Core;
-using Lionk.Core.Component;
 
 namespace Lionk.Ble.Models;
 
@@ -14,7 +13,7 @@ public class BleLinuxService : BleService
     private List<DeviceToRegister> _devicesToRegister = new();
     private List<IBleDevice> _devices = new();
     private bool _isDiscovering = false;
-    private object _lock = new();
+    public override bool CanExecute { get; } = true;
 
     protected override void OnExecute(CancellationToken cancellationToken)
     {
@@ -172,6 +171,24 @@ public class BleLinuxService : BleService
         else return null;
     }
 
+    public override List<IBleDevice> GetDevices()
+    {
+        return _devices;
+    }
+
+    public override DeviceStatus GetDeviceStatus(string? deviceName)
+    {
+        if (string.IsNullOrWhiteSpace(deviceName)) return DeviceStatus.NotFound;
+        if (_connectedDevices.TryGetValue(deviceName, out var device))
+        {
+            return device.Status;
+        }
+        else
+        {
+            return DeviceStatus.NotFound;
+        }
+    }
+
     private IBleDevice? GetDevice(string deviceAddress)
     {
         IEnumerable<IBleDevice> devices = _devices;
@@ -225,27 +242,8 @@ public class BleLinuxService : BleService
             _isDiscovering = false;
         }
     }
-
-    public override List<IBleDevice> GetDevices()
-    {
-        return _devices;
-    }
-
-    public override DeviceStatus GetDeviceStatus(string? deviceName)
-    {
-        if (string.IsNullOrWhiteSpace(deviceName)) return DeviceStatus.NotFound;
-        if (_connectedDevices.TryGetValue(deviceName, out var device))
-        {
-            return device.Status;
-        }
-        else
-        {
-            return DeviceStatus.NotFound;
-        }
-    }
-
-    public override bool CanExecute { get; } = true;
 }
+
 
 internal class DeviceToRegister
 {
