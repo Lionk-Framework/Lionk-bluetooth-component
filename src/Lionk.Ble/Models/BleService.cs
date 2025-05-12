@@ -29,6 +29,16 @@ public abstract class BleService : BaseCyclicComponent
     /// <param name="callbackImplementation"> The callback to be called when the device is subscribed</param>
     public abstract void Subscribe(string deviceAddress, string serviceId, string characteristicId, IBleCallback callbackImplementation);
 
+
+    /// <summary>
+    /// Methode to read a characteristic from a device
+    /// </summary>
+    /// <param name="deviceId"></param>
+    /// <param name="serviceId"></param>
+    /// <param name="characteristicId"></param>
+    /// <returns></returns>
+    public abstract Task<byte[]> Read(string deviceId, string serviceId, string characteristicId);
+
     /// <summary>
     /// Method to get the name of the device by its address
     /// </summary>
@@ -55,6 +65,6 @@ public abstract class BleService : BaseCyclicComponent
     /// </summary>
     protected BleService()
     {
-        Period = TimeSpan.FromSeconds(5);
+        Period = TimeSpan.FromSeconds(BleServicePeriod);
     }
 }

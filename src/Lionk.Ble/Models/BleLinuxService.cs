@@ -12,9 +12,12 @@ public class BleLinuxService : BleService
     private List<DeviceToSubscribe> _deviceToSubscribe = new();
     private List<DeviceToRegister> _devicesToRegister = new();
     private List<IBleDevice> _devices = new();
-    private bool _isDiscovering = false;
+    private bool _isDiscovering;
+    
+    /// <inheritdoc/>
     public override bool CanExecute { get; } = true;
-
+    
+    /// <inheritdoc/>
     protected override void OnExecute(CancellationToken cancellationToken)
     {
         if (_adapter is null)
@@ -31,6 +34,82 @@ public class BleLinuxService : BleService
 
         base.OnExecute(cancellationToken);
     }
+    
+    /// <inheritdoc/>
+    public override void RegisterDevice(string deviceAddress, IBleCallback callbackImplementation)
+    {
+        _devicesToRegister.Add(new DeviceToRegister(deviceAddress, callbackImplementation));
+    }
+
+    /// <inheritdoc/>
+    public override void Subscribe(string deviceAddress, string serviceId, string characteristicId,
+        IBleCallback callbackImplementation)
+    {
+        _deviceToSubscribe.Add(new DeviceToSubscribe(deviceAddress, serviceId, characteristicId, callbackImplementation));
+    }
+
+    /// <inheritdoc/>
+    public override async Task<byte[]> Read(string deviceId, string serviceId, string characteristicId)
+    {
+        var device = _connectedDevices[deviceId];
+        return await device.ReadCharacteristic(serviceId, characteristicId);
+    }
+
+    /// <inheritdoc/>
+    public override string GetDeviceName(string deviceAddress)
+    {
+        if (_connectedDevices.TryGetValue(deviceAddress, out var device))
+        {
+            return device.GetName();
+        }
+        else
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <inheritdoc/>
+    public override short? GetRssiOfDevice(string deviceAddress)
+    {
+        if (_connectedDevices.TryGetValue(deviceAddress, out var device))
+        {
+            return device.GetRssi();
+        }
+        else return null;
+    }
+
+    /// <inheritdoc/>
+    public override List<IBleDevice> GetDevices()
+    {
+        return _devices;
+    }
+
+    /// <inheritdoc/>
+    public override DeviceStatus GetDeviceStatus(string? deviceName)
+    {
+        if (string.IsNullOrWhiteSpace(deviceName)) return DeviceStatus.NotFound;
+        if (_connectedDevices.TryGetValue(deviceName, out var device))
+        {
+            return device.Status;
+        }
+        else
+        {
+            return DeviceStatus.NotFound;
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        var adapters = await BlueZManager.GetAdaptersAsync();
+        Adapter? adapter = adapters.FirstOrDefault();
+        if (adapter is null)
+        {
+            throw new Exception("No Bluetooth adapter found");
+        }
+
+        _adapter = adapter;
+        await GetAvailableDevices();
+    }
 
     private void GetAllProperties()
     {
@@ -42,7 +121,6 @@ public class BleLinuxService : BleService
 
     private void SubscribeAllDevices()
     {
-        List<DeviceToSubscribe> subscribedDevices = new();
         var devicesToIterate = new List<DeviceToSubscribe>(_deviceToSubscribe);
         foreach (var deviceToSubscribe in devicesToIterate)
         {
@@ -51,14 +129,8 @@ public class BleLinuxService : BleService
         }
     }
 
-    public override void Subscribe(string deviceAddress, string serviceId, string characteristicId,
-        IOnCharacteristicData cb)
-    {
-        _deviceToSubscribe.Add(new DeviceToSubscribe(deviceAddress, serviceId, characteristicId, cb));
-    }
-
     private void SubscribeDevice(string deviceId, string serviceId, string characteristicId,
-        IOnCharacteristicData cb)
+        IBleCallback cb)
     {
         if (_connectedDevices.TryGetValue(deviceId, out var device))
         {
@@ -100,7 +172,6 @@ public class BleLinuxService : BleService
     {
         IBleDevice? device = GetDevice(deviceToRegister.Address);
         if (device is null) return DeviceStatus.NotFound;
-        device.Status = DeviceStatus.Found;
 
         Console.WriteLine($"Found {deviceToRegister.Address} as {device.GetName()}");
         device.OnConnectionEstablished += (sender, args) =>
@@ -120,73 +191,10 @@ public class BleLinuxService : BleService
         return device.Status;
     }
 
-    public override void RegisterDevice(string deviceAddress, IOnCharacteristicData cb)
-    {
-        _devicesToRegister.Add(new DeviceToRegister(deviceAddress, cb));
-    }
-
-    public async Task CreateAsync()
-    {
-        var adapters = await BlueZManager.GetAdaptersAsync();
-        Adapter? adapter = adapters.FirstOrDefault();
-        if (adapter is null)
-        {
-            throw new Exception("No Bluetooth adapter found");
-        }
-
-        _adapter = adapter;
-        await GetAvailableDevices();
-    }
-
-    async Task<string> GetDeviceDescriptionAsync(IDevice1 device)
+    private async Task<string> GetDeviceDescriptionAsync(IDevice1 device)
     {
         var deviceProperties = await device.GetAllAsync();
         return $"{deviceProperties.Alias} (Address: {deviceProperties.Address}, RSSI: {deviceProperties.RSSI})";
-    }
-
-    public async Task<byte[]> Read(string deviceId, string serviceId, string characteristicId)
-    {
-        var device = _connectedDevices[deviceId];
-        return await device.ReadCharacteristic(serviceId, characteristicId);
-    }
-
-    public override string GetDeviceName(string deviceAddress)
-    {
-        if (_connectedDevices.TryGetValue(deviceAddress, out var device))
-        {
-            return device.GetName() ?? string.Empty;
-        }
-        else
-        {
-            return string.Empty;
-        }
-    }
-
-    public override short? GetRssiOfDevice(string deviceAddress)
-    {
-        if (_connectedDevices.TryGetValue(deviceAddress, out var device))
-        {
-            return device.GetRssi();
-        }
-        else return null;
-    }
-
-    public override List<IBleDevice> GetDevices()
-    {
-        return _devices;
-    }
-
-    public override DeviceStatus GetDeviceStatus(string? deviceName)
-    {
-        if (string.IsNullOrWhiteSpace(deviceName)) return DeviceStatus.NotFound;
-        if (_connectedDevices.TryGetValue(deviceName, out var device))
-        {
-            return device.Status;
-        }
-        else
-        {
-            return DeviceStatus.NotFound;
-        }
     }
 
     private IBleDevice? GetDevice(string deviceAddress)
@@ -213,7 +221,7 @@ public class BleLinuxService : BleService
 
             int newDevices = 0;
             using (
-                await _adapter.WatchDevicesAddedAsync(async device =>
+                await _adapter.WatchDevicesAddedAsync(async void (device) =>
                 {
                     newDevices++;
                     string deviceDescription = await GetDeviceDescriptionAsync(device);
@@ -235,6 +243,7 @@ public class BleLinuxService : BleService
                 var deviceProperties = await dev.GetAllAsync();
                 result.Add(new(dev, deviceProperties));
             }
+
             _devices = result.Cast<IBleDevice>().ToList();
         }
         finally
@@ -244,13 +253,12 @@ public class BleLinuxService : BleService
     }
 }
 
-
 internal class DeviceToRegister
 {
     public string Address { get; set; }
-    public IOnCharacteristicData Callback { get; set; }
+    public IBleCallback Callback { get; set; }
 
-    public DeviceToRegister(string address, IOnCharacteristicData callback)
+    public DeviceToRegister(string address, IBleCallback callback)
     {
         Address = address;
         Callback = callback;
@@ -262,9 +270,9 @@ internal class DeviceToSubscribe
     public string Address { get; set; }
     public string ServiceId { get; set; }
     public string CharacteristicId { get; set; }
-    public IOnCharacteristicData Callback { get; set; }
+    public IBleCallback Callback { get; set; }
 
-    public DeviceToSubscribe(string address, string serviceId, string characteristicId, IOnCharacteristicData callback)
+    public DeviceToSubscribe(string address, string serviceId, string characteristicId, IBleCallback callback)
     {
         Address = address;
         ServiceId = serviceId;
