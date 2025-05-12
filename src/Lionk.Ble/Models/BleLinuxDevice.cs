@@ -6,10 +6,15 @@ class BleLinuxDevice : IBleDevice
 {
     private Device _device;
     private Device1Properties _props;
-    private static readonly Dictionary<string, IOnCharacteristicData> _subscribers = new();
+    private static readonly Dictionary<string, IBleCallback> _subscribers = new();
 
+    /// <inheritdoc/>
     public event EventHandler? OnConnectionEstablished;
+
+    /// <inheritdoc/>
     public event EventHandler? OnSubscribeEstablished;
+
+    /// <inheritdoc/>
     public event EventHandler? OnDisconnected;
     public BleLinuxDevice(Device device, Device1Properties props)
     {
@@ -20,52 +25,32 @@ class BleLinuxDevice : IBleDevice
         this._props = props;
     }
 
+    /// <inheritdoc/>
     public DeviceStatus Status { get; set; }
 
+    /// <inheritdoc/>
     public string GetName()
     {
-        if (_props.Name is null)
-        {
-            return string.Empty;
-        }
-        return _props.Name;
+        return string.IsNullOrEmpty(_props.Name) ? string.Empty : _props.Name;
     }
 
+    /// <inheritdoc/>
     public string GetAddress()
     {
-        if (_props.Address is null)
-        {
-            return string.Empty;
-        }
-        return _props.Address;
+        return string.IsNullOrEmpty(_props.Address) ? string.Empty : _props.Address;
     }
 
+    /// <inheritdoc/>
     public short GetRssi()
     {
         return _props.RSSI;
     }
 
-    private static async Task OnNotification(
-        GattCharacteristic characteristic,
-        GattCharacteristicValueEventArgs e
-    )
-    {
-        var uuid = await characteristic.GetUUIDAsync();
-        var data = e.Value;
-        if (_subscribers.TryGetValue(uuid, out var subscriber))
-        {
-            subscriber.OnNewData(uuid, data);
-        }
-        else
-        {
-            Console.WriteLine("Couldn't find characteristic subscriber");
-        }
-    }
-
+    /// <inheritdoc/>
     public async Task SubscribeToCharacteristic(
         string serviceId,
         string characteristicId,
-        IOnCharacteristicData onData
+        IBleCallback onData
     )
     {
         IGattService1 service = await _device.GetServiceAsync(serviceId);
@@ -93,6 +78,7 @@ class BleLinuxDevice : IBleDevice
         characteristic.Value += OnNotification;
     }
 
+    /// <inheritdoc/>
     public async Task<byte[]> ReadCharacteristic(string serviceId, string characteristicId)
     {
         IGattService1 service = await _device.GetServiceAsync(serviceId);
@@ -111,16 +97,20 @@ class BleLinuxDevice : IBleDevice
         return await characteristic.ReadValueAsync(TimeSpan.FromSeconds(15));
     }
 
+    /// <inheritdoc/>
     public async Task FetchProperties()
     {
         _props = await _device.GetAllAsync();
     }
 
+
+    /// <inheritdoc/>
     public async Task<bool> IsConnected()
     {
         return await _device.GetConnectedAsync();
     }
 
+    /// <inheritdoc/>
     public async Task Connect()
     {
         bool isAlreadyConnected = await IsConnected();
@@ -134,6 +124,7 @@ class BleLinuxDevice : IBleDevice
         await _device.ConnectAsync();
     }
 
+    /// <inheritdoc/>
     public Task Disconnect()
     {
         Status = DeviceStatus.Disconnecting;
@@ -141,23 +132,40 @@ class BleLinuxDevice : IBleDevice
         return Task.CompletedTask;
     }
 
-    Task ConnectedAsync(Device sender, BlueZEventArgs eventArgs)
+    private Task ConnectedAsync(Device sender, BlueZEventArgs eventArgs)
     {
         OnConnectionEstablished?.Invoke(this, eventArgs);
         Status = DeviceStatus.Connected;
         return Task.CompletedTask;
     }
 
-    Task DisconnectedAsync(Device sender, BlueZEventArgs eventArgs)
+    private Task DisconnectedAsync(Device sender, BlueZEventArgs eventArgs)
     {
         OnDisconnected?.Invoke(sender, eventArgs);
         Status = DeviceStatus.Disconnected;
         return Task.CompletedTask;
     }
 
-    Task ServicesResolvedAsync(Device sender, BlueZEventArgs eventArgs)
+    private Task ServicesResolvedAsync(Device sender, BlueZEventArgs eventArgs)
     {
         Status = DeviceStatus.Ready;
         return Task.CompletedTask;
+    }
+
+    private static async Task OnNotification(
+        GattCharacteristic characteristic,
+        GattCharacteristicValueEventArgs e
+    )
+    {
+        var uuid = await characteristic.GetUUIDAsync();
+        var data = e.Value;
+        if (_subscribers.TryGetValue(uuid, out var subscriber))
+        {
+            subscriber.OnNotify(uuid, data);
+        }
+        else
+        {
+            Console.WriteLine("Couldn't find characteristic subscriber");
+        }
     }
 }
