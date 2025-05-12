@@ -49,6 +49,12 @@ public interface IBleDevice
     public Task Connect();
 
     /// <summary>
+    /// Method to disconnect the device.
+    /// </summary>
+    /// <returns></returns>
+    public Task Disconnect();
+
+    /// <summary>
     /// Methode to get the name of the device.
     /// </summary>
     /// <returns> The name of the device. </returns>
