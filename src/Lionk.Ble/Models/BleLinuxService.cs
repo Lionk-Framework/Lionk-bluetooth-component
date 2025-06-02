@@ -185,7 +185,10 @@ public class BleLinuxService : BleService
             deviceToRegister.Callback.OnDisconnected();
         };
 
-        device.OnSubscribeEstablished += (sender, args) => { RemoveDeviceToSubscribe(deviceToRegister.Address); };
+        device.OnSubscribeEstablished += (sender, args) =>
+        { Console.WriteLine("Correctly subscribed");
+            RemoveDeviceToSubscribe(deviceToRegister.Address);
+        };
         Console.WriteLine($"Connecting to device {device.GetName()}");
         _ = device.Connect();
         return device.Status;
@@ -225,14 +228,14 @@ public class BleLinuxService : BleService
                 {
                     newDevices++;
                     string deviceDescription = await GetDeviceDescriptionAsync(device);
-                    Console.WriteLine($"[NEW] {deviceDescription}");
+                    // Console.WriteLine($"[NEW] {deviceDescription}");
                 })
             )
             {
                 await _adapter.StartDiscoveryAsync();
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 await _adapter.StopDiscoveryAsync();
-                Console.WriteLine($"[NEW] {newDevices} devices discovered");
+                // Console.WriteLine($"[NEW] {newDevices} devices discovered");
             }
 
             List<BleLinuxDevice> result = [];
